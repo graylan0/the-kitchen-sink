@@ -25,7 +25,7 @@ Event Binding: The script binds the Enter key to the generate button click event
 
 Main Loop: The script runs the main event loop for the GUI using root.mainloop().
 
-Please note that the script assumes that the Llama model and the GPT-Neo model are available on the system, and that the user has a valid API key for accessing the GPT-4 model via the OpenAI API. Additionally, the script uses the llama_cpp module, which is not a standard Python module and may require custom installation or setup using `pip install llama-cpp-python. As well as pytorch requirements can be installed with the guide here. (i use anaconda) https://pytorch.org .
+Please note that the script assumes that the Llama model and the GPT-Neo model are available on the system, and that the user has a valid API key for accessing the GPT-4 model via the OpenAI API. Additionally, the script uses the llama_cpp module, which is not a standard Python module and may require custom installation or setup using `pip install llama-cpp-python` . As well as pytorch requirements can be installed with the guide here. (i use anaconda) https://pytorch.org .
 
 
 Love your enemies! 
