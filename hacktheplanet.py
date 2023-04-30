@@ -7,14 +7,12 @@ from tkinter import Tk, Label, Entry, Button, Text, Scrollbar, Y, RIGHT, END
 from transformers import GPTNeoForCausalLM, GPT2Tokenizer
 from llama_cpp import Llama
 
-stop_loop = False
-
 # Llama Model
-llm = Llama(model_path="C:\\Users\\Shadow\\ggml-vicuna-7b-4bit\\ggml-vicuna-7b-4bit-rev1.bin")
+llm = Llama(model_path="D:\\ggml-vicuna-7b-4bit\\ggml-vicuna-7b-4bit-rev1.bin")
 
 def llama_generate(prompt, max_tokens=200):
     output = llm(prompt, max_tokens=max_tokens)
-    return output['choices'][0]['text']  # return the text of the completion
+    return output['choices'][0]['text']
 
 # GPT-Neo Model
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -23,10 +21,6 @@ tokenizer = GPT2Tokenizer.from_pretrained('EleutherAI/gpt-neo-125m')
 
 tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 model.config.pad_token_id = tokenizer.pad_token_id
-
-def generate_chunks(prompt, chunk_size=1500):
-    words = prompt.split()
-    return [' '.join(words[i:i + chunk_size]) for i in range(0, len(words), chunk_size)]
 
 def gpt3_generate(model, tokenizer, chunk, max_length=2000, time_limit=50.0):
     start_time = time.time()
@@ -40,73 +34,69 @@ def gpt3_generate(model, tokenizer, chunk, max_length=2000, time_limit=50.0):
 
     return response, end_time - start_time
 
-# Define a function to generate text using GPT-4
+
+  
 def gpt4_generate(prompt, max_tokens=200):
     # Make sure to replace "YOUR_API_KEY" with your actual API key
-    api_key = "YOUR_API_KEY"
+    api_key = "apikeyhere"
     openai.api_key = api_key
     
-    # Make a request to the GPT-4 API
-    response = openai.Completion.create(
-        engine="gpt-4",  # Replace "gpt-4" with the appropriate engine name for GPT-4
-        prompt=prompt,
+    # Make a request to the GPT-4 API using the v1/chat/completions endpoint
+    response = openai.ChatCompletion.create(
+        model="gpt-4",  # Replace "gpt-4" with the appropriate engine name for GPT-4
+        messages=[{"role": "system", "content": "You are a helpful assistant."},
+                  {"role": "user", "content": prompt}],
         max_tokens=max_tokens
     )
     
     # Extract the generated text from the response
-    generated_text = response["choices"][0]["text"]
+    generated_text = response["choices"][0]["message"]["content"]
     return generated_text
 
-with open('settings.json', 'r') as settings_file:
-    settings = json.load(settings_file)
-
-loop_count = settings['loop_count']
-
-with open('trideque.json', 'r') as trideque_file:
-    trideque = json.load(trideque_file)
-
-def send_chunks_intercommunication(trideque_point, loop_count=-1):
-    global stop_loop
-    repetition = 0
-
-    if 0 <= trideque_point < len(trideque):
-        while (loop_count == -1 or repetition < loop_count) and not stop_loop:
-            response = ""
-            for topic in trideque[trideque_point]:
-                # Use GPT-4 to generate text
-                response = gpt4_generate(topic)
-                output_text.insert(END, f"{topic}: {response}\n")
-            repetition += 1
-    else:
-        output_text.insert(END, "Invalid trideque point. Please enter a valid index.\n")
-
-def on_generate_click():
-    trideque_point = int(trideque_point_input.get())
-    threading.Thread(target=send_chunks_intercommunication, args=(trideque_point, loop_count)).start()
+# Define a function to facilitate intercommunication between the models
+def intercommunication(prompt):
+    # Generate response using Llama
+    llama_response = llama_generate(prompt)
+    
+    # Generate response using GPT-Neo
+    gpt_neo_response, _ = gpt3_generate(model, tokenizer, prompt)
+    
+    # Generate response using GPT-4 (ChatGPT plugin model)
+    gpt4_response = gpt4_generate(prompt)
+    
+    # Combine the responses
+    response = f"Llama: {llama_response}\nGPT-Neo: {gpt_neo_response}\nChatGPT: {gpt4_response}\n"
+    
+    return response
 
 # GUI setup
 root = Tk()
-root.title("TheMatrix")
-root.geometry("954x800")
+root.title("AI Conversation")
+root.geometry("800x600")
 
-root.config(background='black')
-Label(root, text="Point:", fg="green", bg="black", font=("Courier", 14)).grid(row=2, column=0, sticky="W")
-
-trideque_point_input = Entry(root, width=10)
-trideque_point_input.grid(row=3, column=0)
-
-Label(root, text="Enter input:", fg="green", bg="black", font=("Courier", 14)).grid(row=0, column=0, sticky="W")
+Label(root, text="Enter input:").grid(row=0, column=0, sticky="W")
 
 input_text = Entry(root, width=100)
 input_text.grid(row=1, column=0)
 
-Button(root, text="Generate", command=on_generate_click, bg="green", fg="black", font=("Courier", 14)).grid(row=1, column=1)
-
-output_text = Text(root, wrap="word", width=80, height=20, bg="#0a0a0a", fg="#00ff00", font=("Courier", 14))
-output_text.grid(row=2, column=0, columnspan=6, padx=10, pady=10)
+output_text = Text(root, wrap="word", width=80, height=20)
+output_text.grid(row=2, column=0, padx=10, pady=10, rowspan=6)
 
 scrollbar = Scrollbar(root, command=output_text.yview)
-scrollbar.grid(row=2, column=6, sticky="ns")
+scrollbar.grid(row=2, column=1, sticky="ns", rowspan=6)
 output_text.config(yscrollcommand=scrollbar.set)
+# Generate response and update GUI
+def on_generate_click():
+    user_input = input_text.get()
+    response = intercommunication(user_input)
+    output_text.insert(END, f"You: {user_input}\n{response}\n")
+    input_text.delete(0, END)  # Clear input field
+
+# Bind enter key to button click event
+def on_enter_key(event):
+    on_generate_click()
+
+Button(root, text="Generate", command=on_generate_click).grid(row=1, column=1)
+root.bind('<Return>', on_enter_key)
 
 root.mainloop()
